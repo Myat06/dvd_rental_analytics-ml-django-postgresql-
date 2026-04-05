@@ -1,0 +1,35 @@
+{% extends "dashboard/base.html" %}
+
+{% block page_title %}System Overview{% endblock %}
+
+{% block content %}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <!-- Revenue Summary Card -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <h3 class="text-gray-400 text-sm font-medium uppercase">Total Revenue</h3>
+            <p class="text-4xl font-bold text-green-400 mt-2">${{ kpis.total_revenue|floatformat:2 }}</p>
+            <a href="{% url 'revenue:overview' %}" class="text-blue-400 text-sm mt-4 inline-block hover:underline">View Details &rarr;</a>
+        </div>
+
+        <!-- Placeholder Cards -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg opacity-50">
+            <h3 class="text-gray-400 text-sm font-medium uppercase">Active Customers</h3>
+            <p class="text-4xl font-bold text-white mt-2">0</p>
+        </div>
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+            <h3 class="text-gray-400 text-sm font-medium uppercase">ML forecast (7d)</h3>
+            {% if forecast_status.available %}
+            <p class="text-2xl font-bold text-indigo-400 mt-2">${{ forecast_status.next_7d_forecast_total }}</p>
+            <p class="text-gray-500 text-xs mt-2">Model trained on {{ forecast_status.trained_at }}</p>
+            {% else %}
+    <p class="text-gray-500 text-sm mt-2">No forecast data. Run: <code class="text-xs bg-gray-900 px-1 rounded">python manage.py run_revenue_etl</code></p>
+    <p class="text-gray-400 text-xs mt-1">(Needs 14+ days data in raw_data/revenue_clean.csv)</p>
+            {% endif %}
+            <a href="{% url 'revenue:overview' %}" class="text-blue-400 text-sm mt-3 inline-block hover:underline">Revenue &amp; charts &rarr;</a>
+        </div>
+    </div>
+
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 text-center py-12">
+        <p class="text-gray-400 text-lg">Select a Case Study from the sidebar to begin analysis.</p>
+    </div>
+{% endblock %}

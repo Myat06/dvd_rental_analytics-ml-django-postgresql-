@@ -1,0 +1,217 @@
+{% extends "dashboard/base.html" %}
+{% block page_title %}💰 Revenue Analytics{% endblock %}
+
+{% block content %}
+<!-- 🔍 DATE FILTER -->
+<div class="mb-6 flex justify-between items-center">
+    <form method="get" class="flex items-center gap-6">
+        <div class="flex items-center gap-3">
+            <label class="text-gray-400 text-sm font-medium">Time Period:</label>
+            <select name="days" onchange="this.form.submit()" 
+                    class="bg-gray-800 text-white border border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer">
+                {% for opt in days_options %}
+                <option value="{{ opt }}" {% if opt == selected_days %}selected{% endif %}>{{ opt }} Days</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-center gap-3">
+            <label class="text-gray-400 text-sm font-medium">Forecast:</label>
+            <select name="predict_days" onchange="this.form.submit()" 
+                    class="bg-gray-800 text-green-400 border border-green-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-500 outline-none cursor-pointer">
+                {% for opt in predict_days_options %}
+                <option value="{{ opt }}" {% if opt == selected_predict_days %}selected{% endif %}>+{{ opt }} Days</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- 📈 KPI CARDS -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+        <h3 class="text-gray-400 text-sm uppercase">Total Revenue</h3>
+        <p class="text-3xl font-bold text-green-400 mt-2">${{ kpis.total_revenue|floatformat:2 }}</p>
+    </div>
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+        <h3 class="text-gray-400 text-sm uppercase">Transactions</h3>
+        <p class="text-3xl font-bold text-blue-400 mt-2">{{ kpis.transaction_count }}</p>
+    </div>
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow">
+        <h3 class="text-gray-400 text-sm uppercase">Avg. Transaction</h3>
+        <p class="text-3xl font-bold text-purple-400 mt-2">${{ kpis.avg_transaction|floatformat:2 }}</p>
+    </div>
+
+</div>
+
+<!-- 📊 CHARTS AREA -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Line Chart -->
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow h-[400px]">
+        <h3 class="text-lg font-semibold mb-4 text-white">Daily Revenue Trend</h3>
+        <canvas id="trendChart" style="height: 300px; width: 100%;"></canvas>
+    </div>
+    
+    <!-- Bar Chart for Weekdays -->
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow h-[400px]">
+        <h3 class="text-lg font-semibold mb-4 text-white">Revenue by Day of Week</h3>
+        <canvas id="weekdayChart" style="height: 300px; width: 100%;"></canvas>
+    </div>
+
+    <!-- ML forecast -->
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow h-[400px]">
+        <h3 class="text-lg font-semibold mb-2 text-white">ML Forecast ({{ selected_predict_days }}D)</h3>
+        {% if forecast_status.available %}
+        <p class="text-xs text-gray-400 mb-4">
+            Model trained {{ forecast_status.trained_at }} · train days {{ forecast_status.train_days }} ·
+            MAE (train) {{ forecast_status.mae_train|floatformat:2 }} · MAE (test) {{ forecast_status.mae_test|floatformat:2 }} · next {{ forecast_status.predict_days }}d total ${{ forecast_status.next_forecast_total }}
+        </p>
+        <canvas id="forecastChart" style="height: 320px; width: 100%;"></canvas>
+        {% else %}
+        <p class="text-gray-400 text-sm">{{ forecast_status.message }}</p>
+        <p class="text-gray-500 text-xs mt-4">
+            Ensure you have run the ETL pipeline and generated <code class="bg-gray-900 px-1 rounded">revenue_clean.csv</code> with at least 14 days of data to view the ML forecast.
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Pie/Doughnut Chart for Categories -->
+    <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow h-[400px]">
+        <h3 class="text-lg font-semibold mb-4 text-white">Top 5 Film Categories</h3>
+        <canvas id="categoryChart" style="height: 300px; width: 100%;"></canvas>
+    </div>
+</div>
+
+<!-- 🖼️ CHART.JS SCRIPTS -->
+<script>
+    const chartData = JSON.parse('{{ chart_json|safe }}');
+
+    // 1. Line chart: actual + optional forecast extension
+    (function () {
+        const fc = chartData.forecast;
+        let labels = chartData.trend.dates;
+        let dsActual = chartData.trend.amounts;
+        const datasets = [{
+            label: 'Actual revenue ($)',
+            data: dsActual,
+            borderColor: 'rgb(34, 197, 94)',
+            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+            fill: true,
+            tension: 0.4,
+            pointRadius: 3
+        }];
+        if (fc && fc.dates.length) {
+            labels = chartData.trend.dates.concat(fc.dates);
+            const pad = (n) => Array(n).fill(null);
+            datasets[0].data = dsActual.concat(pad(fc.dates.length));
+            datasets.push({
+                label: 'Forecast ($)',
+                data: pad(chartData.trend.dates.length).concat(fc.amounts),
+                borderColor: 'rgb(96, 165, 250)',
+                backgroundColor: 'transparent',
+                borderDash: [6, 4],
+                fill: false,
+                tension: 0.3,
+                pointRadius: 3
+            });
+        }
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', maxRotation: 45 } }
+                },
+                plugins: {
+                    legend: { display: !!fc, labels: { color: '#9ca3af' } }
+                }
+            }
+        });
+    })();
+
+    // 2. Doughnut Chart for Categories
+    const categoryAmounts = chartData.categories.amounts;
+    const totalCategory = categoryAmounts.reduce((a, b) => a + b, 0);
+    const categoryLabelsWithPct = chartData.categories.labels.map((label, index) => {
+        let pct = totalCategory > 0 ? ((categoryAmounts[index] / totalCategory) * 100).toFixed(1) : 0;
+        return `${label} (${pct}%)`;
+    });
+
+    new Chart(document.getElementById('categoryChart'), {
+        type: 'doughnut',
+        data: {
+            labels: categoryLabelsWithPct,
+            datasets: [{
+                data: categoryAmounts,
+                backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#8b5cf6', '#10b981'],
+                borderWidth: 0,
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { color: '#9ca3af', padding: 20 } }
+            }
+        }
+    });
+
+    // 3. Bar Chart for Weekdays
+    new Chart(document.getElementById('weekdayChart'), {
+        type: 'bar',
+        data: {
+            labels: chartData.weekdays.labels,
+            datasets: [{
+                label: 'Total Revenue ($)',
+                data: chartData.weekdays.amounts,
+                backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                borderColor: 'rgb(245, 158, 11)',
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    {% if forecast_status.available %}
+    const fcOnly = chartData.forecast;
+    if (fcOnly && document.getElementById('forecastChart')) {
+        new Chart(document.getElementById('forecastChart'), {
+            type: 'line',
+            data: {
+                labels: fcOnly.dates,
+                datasets: [{
+                    label: 'Predicted daily revenue ($)',
+                    data: fcOnly.amounts,
+                    borderColor: 'rgb(129, 140, 248)',
+                    backgroundColor: 'rgba(129, 140, 248, 0.15)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#374151' }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { color: '#374151' }, ticks: { color: '#9ca3af', maxRotation: 45 } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+    {% endif %}
+</script>
+{% endblock %}

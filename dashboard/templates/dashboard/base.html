@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DVD Analytics Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (Global) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans antialiased">
+
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- ──────────── SIDEBAR ──────────── -->
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div class="p-6 border-b border-gray-700">
+                <h1 class="text-2xl font-bold text-blue-500 tracking-wider">DVD ANALYTICS</h1>
+            </div>
+            
+            <nav class="flex-1 overflow-y-auto py-4">
+                <ul class="space-y-1 px-4">
+                    
+                    <!-- Dashboard Home -->
+                    <li>
+                        <a href="{% url 'dashboard:home' %}" 
+                           class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition {% if request.path == '/' %}bg-blue-600 text-white{% endif %}">
+                            <span class="mr-3">🏠</span> Overview
+                        </a>
+                    </li>
+
+                    <!-- Revenue Case Study -->
+                    <li>
+                        <a href="{% url 'revenue:overview' %}" 
+                           class="flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 transition {% if 'revenue' in request.path %}bg-blue-600 text-white{% endif %}">
+                            <span class="mr-3">💰</span> Revenue
+                        </a>
+                    </li>
+
+                    <!-- Placeholders for other apps -->
+                    <li class="px-4 py-3 text-gray-500 cursor-not-allowed">
+                        <span class="mr-3">👥</span> Customer (Coming Soon)
+                    </li>
+                    <li class="px-4 py-3 text-gray-500 cursor-not-allowed">
+                        <span class="mr-3">🎬</span> Film (Coming Soon)
+                    </li>
+                    <li class="px-4 py-3 text-gray-500 cursor-not-allowed">
+                        <span class="mr-3">📦</span> Rental (Coming Soon)
+                    </li>
+
+                </ul>
+            </nav>
+
+            <div class="p-4 border-t border-gray-700 text-xs text-gray-500 text-center">
+                &copy; 2026 Group Project
+            </div>
+        </aside>
+
+        <!-- ──────────── MAIN CONTENT ──────────── -->
+        <main class="flex-1 overflow-y-auto bg-gray-900 p-8">
+            <!-- Page Header (Optional dynamic title) -->
+            <header class="mb-8 pb-4 border-b border-gray-800">
+                <h2 class="text-3xl font-bold text-white">
+                    {% block page_title %}Dashboard{% endblock %}
+                </h2>
+            </header>
+
+            <!-- Child templates inject content here -->
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+
+</body>
+</html>
